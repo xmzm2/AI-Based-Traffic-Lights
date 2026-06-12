@@ -1,0 +1,7 @@
+__pycache__/
+.vscode/
+*.mp4
+yolov8n.pt
+receipts/
+violations/
+breaks/
