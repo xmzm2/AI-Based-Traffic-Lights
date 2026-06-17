@@ -156,7 +156,12 @@ def detect_cars(frame, model, states, active_lane=None):
             continue
         if active_lane is not None and lane_name != active_lane:
             continue
-        color = (0, 255, 0) if states[lane_name] == "GREEN" else (0, 0, 255)
+        if states[lane_name] == "GREEN":
+            color = (0, 255, 0)
+        elif states[lane_name] == "YELLOW":
+            color = (0, 255, 255)
+        else:
+            color = (0, 0, 255)
         cv2.polylines(frame, [poly], True, color, 2)
 
     # Draw always-green lines
@@ -318,6 +323,14 @@ def run_lane_video(lane_name, video_path, model, font, duration, states, frame_r
         if remaining <= 0:
             break
 
+        # In the last 1 second, transition the GREEN light to YELLOW seamlessly
+        if remaining <= 1.0 and "GREEN" in states.values():
+            gl = next(l for l, s in states.items() if s == "GREEN")
+            states[gl] = "YELLOW"
+            states[lane_name] = "YELLOW"
+            publish_state(states, 1, f"{gl} & {lane_name}")
+            print(f"  YELLOW: {gl} & {lane_name} (1s)")
+
         ret, frame = cap.read()
         if not ret:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -344,8 +357,10 @@ def run_lane_video(lane_name, video_path, model, font, duration, states, frame_r
         fps   = 1.0 / max(tick_delta, 1e-6)
         frame = overlay_info(frame, fps, n, cps_disp, font)
 
-        green_lane = next((l for l, s in states.items() if s == "GREEN"), "?")
-        cv2.putText(frame, f"GREEN: {green_lane}  |  Detecting: {lane_name}",
+        active_lights = [l for l, s in states.items() if s in ("GREEN", "YELLOW")]
+        active_str = " & ".join(active_lights) if active_lights else "?"
+        state_str = "GREEN" if "GREEN" in states.values() else ("YELLOW" if "YELLOW" in states.values() else "RED")
+        cv2.putText(frame, f"{state_str}: {active_str}  |  Detecting: {lane_name}",
                     (10, 370), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2)
         cv2.putText(frame, f"Switch in: {int(remaining)}s",
                     (460, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 255), 2)
@@ -368,9 +383,9 @@ def run_lane_video(lane_name, video_path, model, font, duration, states, frame_r
 # Video paths (one per lane — swap in real feeds later)
 # -------------------------------------------------------
 LANE_VIDEOS = {
-    "North": "Test_Traffic_4.mp4",
+    "North": "Test_Traffic_3.mp4",
     "East":  "Test_Traffic_4.mp4",
-    "South": "Test_Traffic_4.mp4",
+    "South": "Test_Traffic_3.mp4",
     "West":  "Test_Traffic_4.mp4",
 }
 
@@ -398,9 +413,10 @@ if __name__ == "__main__":
         print(f"  GREEN: {green_lane}  ({green_dur}s)   Detecting: {detect_lane}")
         print(f"{'='*42}")
 
+        # We pass duration = green_dur + 1. The last second will automatically transition to YELLOW.
         result = run_lane_video(
             detect_lane, LANE_VIDEOS[detect_lane],
-            model, font, duration=green_dur, states=states
+            model, font, duration=green_dur + 1, states=states
         )
 
         if result == -1:
