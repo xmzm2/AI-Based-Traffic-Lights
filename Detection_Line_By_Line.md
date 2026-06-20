@@ -1,6 +1,6 @@
 # Detection.py - Line by Line Explanation
 
-This document provides a detailed, line-by-line breakdown of how the `Detection.py` script works, including the newly added synchronized yellow light transitions.
+This document provides a detailed, line-by-line breakdown of how the `Detection.py` script works.
 
 ## 1. Imports
 ```python
